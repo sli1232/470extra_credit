@@ -68,7 +68,7 @@ val_dataset = val_dataset.filter(is_validate_example)
 
 # Shuffle and select a subset of the data
 random_seed = 42
-train_size, val_size = 1000, 50
+train_size, val_size = 10000, 1000
 raw_train_dataset = train_dataset.shuffle(seed=random_seed).select(range(train_size))
 raw_val_dataset = val_dataset.shuffle(seed=random_seed).select(range(val_size))
 
@@ -101,10 +101,10 @@ training_args = TrainingArguments(
     output_dir="./results",
     eval_strategy="epoch",
     learning_rate=5e-5,  # Start with a small value
-    per_device_train_batch_size=40,
-    per_device_eval_batch_size=10,
-    # gradient_accumulation_steps=2,
+    per_device_train_batch_size=50,
+    per_device_eval_batch_size=50,
     batch_eval_metrics=True,
+    # gradient_accumulation_steps=2,
     # eval_accumulation_steps=2,
     num_train_epochs=3,
     weight_decay=0.01,
