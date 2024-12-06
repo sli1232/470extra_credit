@@ -68,7 +68,7 @@ val_dataset = val_dataset.filter(is_validate_example)
 
 # Shuffle and select a subset of the data
 random_seed = 42
-train_size, val_size = 8000, 2000
+train_size, val_size = 1000, 50
 raw_train_dataset = train_dataset.shuffle(seed=random_seed).select(range(train_size))
 raw_val_dataset = val_dataset.shuffle(seed=random_seed).select(range(val_size))
 
@@ -102,9 +102,10 @@ training_args = TrainingArguments(
     eval_strategy="epoch",
     learning_rate=5e-5,  # Start with a small value
     per_device_train_batch_size=40,
-    per_device_eval_batch_size=40,
+    per_device_eval_batch_size=10,
     # gradient_accumulation_steps=2,
-    eval_accumulation_steps=2,
+    batch_eval_metrics=True,
+    # eval_accumulation_steps=2,
     num_train_epochs=3,
     weight_decay=0.01,
     save_total_limit=2,
@@ -119,26 +120,24 @@ training_args = TrainingArguments(
 # Load the BLEU metric
 metric = evaluate.load("sacrebleu")
 
-def compute_metrics(eval_pred):
-    predictions, labels = eval_pred
-    decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+def compute_metrics(eval_pred, compute_result=False):
+    logits, labels = eval_pred
+    preds = logits[0].cpu().numpy()
+    labels = labels.cpu().numpy()
+
+    decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
     # Replace -100 with the tokenizer's pad token ID to ignore padded tokens
     labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
     decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-    # Compute BLEU score
-    bleu = metric.compute(predictions=decoded_preds, references=[[label] for label in decoded_labels])
-    return {"bleu": bleu["score"]}
-
-
-# trainer = Trainer(
-#     model=model,
-#     args=training_args,
-#     train_dataset=train_dataset,
-#     eval_dataset=val_dataset,
-#     tokenizer=tokenizer,
-#     compute_metrics=compute_metrics,
-# )
+    metric.add_batch(predictions=decoded_preds, references=decoded_labels)
+    if compute_result: # This is for the final evaluation
+        # Compute BLEU score
+        bleu = metric.compute()
+        return {"bleu": bleu["score"]}
+    
+def preprocess_logits_for_metrics(logits, labels):
+    pred_ids = torch.argmax(logits[0], dim=-1)
+    return pred_ids, labels
 
 trainer = Trainer(
     model=model,
@@ -148,6 +147,7 @@ trainer = Trainer(
     data_collator=data_collator,
     tokenizer=tokenizer,
     compute_metrics=compute_metrics,
+    preprocess_logits_for_metrics=preprocess_logits_for_metrics,
 )
 
 if torch.cuda.is_available():
