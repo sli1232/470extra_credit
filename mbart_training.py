@@ -118,7 +118,7 @@ training_args = TrainingArguments(
 )
 
 # Load the BLEU metric
-metric = evaluate.load("sacrebleu")
+metric = evaluate.load("bleu")
 
 def compute_metrics(eval_pred, compute_result=False):
     logits, labels = eval_pred
@@ -158,3 +158,4 @@ else:
     print("GPU is not available.")
 
 trainer.train()
+print("Training completed!")
