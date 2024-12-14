@@ -17,4 +17,11 @@ module add Python3/3.11.2
 # ulimit -n 2048
 source /fs/nexus-scratch/shile/470extra_credit/.venv/bin/activate
 
-python3 mbart_training.py
+# train the model
+# python3 train.py
+
+# test the original model
+# python3 test.py --original
+
+# test the model after fine-tuning
+python3 test.py

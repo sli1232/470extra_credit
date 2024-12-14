@@ -14,5 +14,10 @@ pip3 install -r requirements.txt
 
 ## Trainining
 ```
-python3 mbart_training.py
+python3 train.py
+```
+
+## Testing
+```
+python3 test.py
 ```

@@ -17,6 +17,8 @@ from transformers import (
     DataCollatorWithPadding
 )
 import evaluate
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 datasets.config.DOWNLOADED_DATASETS_PATH = "/fs/nexus-scratch/shile/470extra_credit/data"
 
@@ -46,8 +48,12 @@ print("Loading dataset...")
 dataset = datasets.load_dataset("shaowenchen/translation_zh")
 
 # Split the dataset into training and validation
-train_dataset = dataset["train"]
-val_dataset = dataset["validation"]
+# Shuffle and select a subset of the data
+random_seed = 42
+train_size, val_size = 10000, 1000
+dataset = dataset["train"].shuffle(seed=random_seed)
+train_dataset = dataset.select(range(train_size))
+val_dataset = dataset.select(range(train_size, train_size + val_size))
 
 # Print the first 3 examples from the training dataset:
 print("Training dataset (first 3 examples):")
@@ -66,11 +72,6 @@ def is_validate_example(example):
 train_dataset = train_dataset.filter(is_validate_example)
 val_dataset = val_dataset.filter(is_validate_example)
 
-# Shuffle and select a subset of the data
-random_seed = 42
-train_size, val_size = 10000, 1000
-raw_train_dataset = train_dataset.shuffle(seed=random_seed).select(range(train_size))
-raw_val_dataset = val_dataset.shuffle(seed=random_seed).select(range(val_size))
 
 def preprocess_function(examples):
     return tokenizer.prepare_seq2seq_batch(
@@ -82,18 +83,9 @@ def preprocess_function(examples):
         truncation=True,
     )
 
-# def preprocess_function(examples):
-#     return tokenizer(
-#         examples['english'],
-#         text_target=examples['chinese'],
-#         max_length=256,
-#         # max_target_length=128,
-#         padding="max_length",
-#         truncation=True,
-#     )
 
-tokenized_train_dataset = raw_train_dataset.map(preprocess_function, batched=True)
-tokenized_val_dataset = raw_val_dataset.map(preprocess_function, batched=True)
+tokenized_train_dataset = train_dataset.map(preprocess_function, batched=True)
+tokenized_val_dataset = val_dataset.map(preprocess_function, batched=True)
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
 
@@ -132,8 +124,8 @@ def compute_metrics(eval_pred, compute_result=False):
     metric.add_batch(predictions=decoded_preds, references=decoded_labels)
     if compute_result: # This is for the final evaluation
         # Compute BLEU score
-        bleu = metric.compute()
-        return {"bleu": bleu["score"]}
+        result = metric.compute()
+        return {"bleu": result["bleu"]}
     
 def preprocess_logits_for_metrics(logits, labels):
     pred_ids = torch.argmax(logits[0], dim=-1)
